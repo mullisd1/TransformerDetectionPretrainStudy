@@ -20,8 +20,8 @@ Here's a simple breakdown of how it works:
 1. Send out a signal: Microware pulses are transmitted towards the Earth's surface.   
 2. Listen for the echo: These pulses bounce off everything they hit on the ground (buildings, trees, water, etc.) and some of the energy scatters back to the SAR antenna
 3. Measure the echo: Two main things about the backscatter:
-  -  How strong the echo is: Different surfaces reflect the microwave pulses differently. Smooth surfaces like calm water tend to scatter the signal away, resulting in a weak echo (appearing dark in the image). Rough surfaces like a forest or buildings scatter more of the signal back, resulting in a strong echo (appearing bright).
-  -  How long it took the echo to return: This tells the system the distance to the object that the pulse bounced off of.
+    -  How strong the echo is: Different surfaces reflect the microwave pulses differently. Smooth surfaces like calm water tend to scatter the signal away, resulting in a weak echo (appearing dark in the image). Rough surfaces like a forest or buildings scatter more of the signal back, resulting in a strong echo (appearing bright).
+    -  How long it took the echo to return: This tells the system the distance to the object that the pulse bounced off of.
 4. Create the "synthetic aperture": This is the clever part that gives SAR its name. Instead of needing a giant physical antenna to get high-resolution images, SAR uses the movement of the satellite or airplane. As the platform moves, it sends and receives multiple pulses from slightly different positions. By processing these signals together, it synthesizes the effect of a much larger antenna, allowing for finer detail in the image.
 5. Build the image: By combining the information about the strength and timing of the backscatter from all the pulses, the SAR system creates an image of the ground
 
