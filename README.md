@@ -58,7 +58,7 @@ Now it is time to test the research question. In order to do this we will train 
     - If this model outperforms the fist model in the list then we will know that the pre-training had some effect
 
 #### Results
-Metrics: [learn more here](insert link to medium)
+Metrics: [learn more here](https://medium.com/data-science/what-is-average-precision-in-object-detection-localization-algorithms-and-how-to-calculate-it-3f330efe697b)
 - mAP: Mean Average Precision 
 - mAR: Mean Average Recall
 
@@ -67,9 +67,10 @@ Metrics: [learn more here](insert link to medium)
 | COCO | None | 0.0 | 0.0 |
 | COCO | HRPlanes | 0.0 | 0.0 |
 | COCO | SSDD | 0.737 | 0.794 |
-| HRPlanes | SSDD |  |  |
+| HRPlanes | SSDD | 0.735 | 0.787 |
 
 #### Conclusion
+The clear conclusion is that if you don't train the detector on any SAR data it will not perform. The other conclusion is that pretraining on overhead imagery did not improve performance. This is probably due to the fact that the majority of the challenges that come with SAR imagery are not because of the overhead perspective.
 
 
 ## Question 2: How does SAR feature extractor pre-training improve object detection performance?
@@ -77,7 +78,7 @@ Metrics: [learn more here](insert link to medium)
 
 For this experiment, we are going to use a SWIN over the ViT backbone. This is because the SWIN backbone is supposed be more effective in data constrained problems. Learn more about them [here](insert medium article for swin)
 
-### SimMIM Pre-training
+#### SimMIM Pre-training
 In order to pre-train the SWIN backbones, we will use a process known as [SimMIM (Simple Masked Image Modeling)](https://github.com/microsoft/SimMIM). 
 
 <div style="text-align:center"><img src="https://github.com/microsoft/SimMIM/raw/main/figures/teaser.jpg" /></div>
@@ -91,11 +92,62 @@ The simplicity of the approach proves effective in learning visual representatio
 
 For this process we need 224x224 patches of SAR data. Ideally, this data would come from a different dataset, but in this case we are going to chip out the train set from the SSDD dataset.
 
-Now that the 
+#### Add SWIN to LWDETR
+Adding the swin backbone was relatively simple. I just needed to take the swin code from the SimMIM code and change the forward call to output multiple layers. My implementation is based off of the one located [here](https://github.com/SwinTransformer/Swin-Transformer-Object-Detection/blob/master/mmdet/models/backbones/swin_transformer.py)
 
+```python
+def forward(self, x):
+    """Forward function."""
+    x = self.patch_embed(x)
+
+    Wh, Ww = x.size(2), x.size(3)
+    if self.ape:
+        # interpolate the position embedding to the corresponding size
+        absolute_pos_embed = F.interpolate(self.absolute_pos_embed, size=(Wh, Ww), mode='bicubic')
+        x = (x + absolute_pos_embed).flatten(2).transpose(1, 2)  # B Wh*Ww C
+    else:
+        x = x.flatten(2).transpose(1, 2)
+    x = self.pos_drop(x)
+
+    reshape_dim = []
+    outs = []
+    for i in range(self.num_layers):
+        layer = self.layers[i]
+        x_out, H, W, x, Wh, Ww = layer(x, Wh, Ww)
+
+        if i in self.out_indices:
+            norm_layer = getattr(self, f'norm{i}')
+            x_out = norm_layer(x_out)
+
+            out = x_out.view(-1, H, W, self.num_features[i]).permute(0, 3, 1, 2).contiguous()
+
+            if i == 0:
+                reshape_dim = out.shape
+            num_repeats = 2**i
+            out = out.repeat(num_repeats, 1, 1, 1)
+            out = torch.reshape(out, reshape_dim)
+
+            outs.append(out)
+
+    return tuple(outs)
+
+```
 
 ### Results
-Imagenet SWIN finetuned on SAR unfrozen
-SIM-MIM SWIN finetuned on SAR unfrozen
+
+| Backbone Architechture | SimMIM Pre-training | Finetuning | mAP | mAR |
+|---|---|---|---|---|
+| SWIN-t | None | SSDD | 0.0 | 0.0 | 
+| SWIN-t | SSDD | SSDD | 0.66 | 0.747 |
+| ViT-t | None | SSDD | 0.737 | 0.794 |
+
+[| ViT-t | SSDD | SSDD | 0.0 | 0.0 |]: <>
 
 ### Conclusion
+Pretraining for this example did not improve performance. I still believe that SAR pretraining is worth it and I simply did not set up my experiment correctly
+
+1. LWDETR is setup for ViT based models. The projector head does not easily accept the outputs of the SWIN models
+2. The experiments were performed on swin-tiny and ViT-tiny. Both of these models are small enough that pretraining is not an important factor.
+3. The SSDD data consist of large ships. These examples are large and easy to identify. Pretraining has the potential to be more important in smaller noisier class
+
+Most of the above shortfalls are not addressed due to lack of compute and data. If someone would like to gift me 8 A100s, I would graciously accept.
